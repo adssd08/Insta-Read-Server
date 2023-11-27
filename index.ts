@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import { loginRouter } from "./routes/login.routes";
 import bodyParser from "body-parser";
 import mongoose from "mongoose";
+import { verifyLoginCreds } from "./middleware/login.middleware";
 
 dotenv.config();
 const app = express();
@@ -12,7 +13,7 @@ app.use(cors());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
-app.use(loginRouter);
+app.use("", verifyLoginCreds, loginRouter);
 app.get("/", (req, res) => {
 	res.send("Hello World");
 });
