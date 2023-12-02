@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
+import { JWT_TOKEN_KEY } from "../config";
 export const verifyToken = (req: Request, res: Response, next: NextFunction) => {
 	const authorizationHeader = req.headers["Authorization"];
 	const token = authorizationHeader && (authorizationHeader as string).split(" ")[1];
@@ -7,7 +8,7 @@ export const verifyToken = (req: Request, res: Response, next: NextFunction) => 
 		return res.status(403).send("Token required for authentication");
 	}
 	try {
-		const decoded = jwt.verify(token, process.env.JWT_TOKEN_KEY!);
+		const decoded = jwt.verify(token, JWT_TOKEN_KEY);
 		console.log("Decoded Value: ", decoded);
 	} catch (err) {
 		return res.send(401).send("Invalid Token");

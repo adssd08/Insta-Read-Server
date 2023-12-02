@@ -1,15 +1,12 @@
 import jwt from "jsonwebtoken";
 import { object, string } from "yup";
 import { ObjectId } from "mongodb";
-export const generateJWTToken = (userId: ObjectId, email: string) => {
-	return jwt.sign(
-		{
-			userId,
-			email,
-		},
-		process.env.JWT_TOKEN_KEY!,
-		{ expiresIn: "2h" }
-	);
+import { AES_KEY, JWT_TOKEN_KEY } from "../config";
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypto";
+import { encryptionType } from "./constants";
+
+export const generateJWTToken = (payload: any, validity: string) => {
+	return jwt.sign(payload, JWT_TOKEN_KEY, { expiresIn: validity });
 };
 
 const getCharacterValidationError = (str: string) => {
@@ -26,3 +23,21 @@ export const loginSchema = object({
 		.min(8, "Password must have at least 8 characters")
 		.max(20, "Password must not be greater than 20 characters"),
 });
+
+const encryptionIV = createHash("sha512").digest("hex").substring(0, 16);
+
+export const generateAesKey = () => {
+	const aesKey = randomBytes(16).toString("hex");
+	console.log("Generated AES Key: ", aesKey);
+};
+
+export const encryptData = (data: string) => {
+	const cipher = createCipheriv(encryptionType, AES_KEY, encryptionIV);
+	return Buffer.from(cipher.update(data, "utf8", "hex") + cipher.final("hex")).toString("base64");
+};
+
+export const decryptData = (encryptedData: string) => {
+	const buff = Buffer.from(encryptedData, "base64");
+	const decipher = createDecipheriv(encryptionType, AES_KEY, encryptionIV);
+	return decipher.update(buff.toString("utf8"), "hex", "utf8") + decipher.final("utf8");
+};
