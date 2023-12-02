@@ -1,6 +1,5 @@
 import jwt from "jsonwebtoken";
 import { object, string } from "yup";
-import { ObjectId } from "mongodb";
 import { AES_KEY, JWT_TOKEN_KEY } from "../config";
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypto";
 import { encryptionType } from "./constants";

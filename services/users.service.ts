@@ -4,6 +4,7 @@ import { userCreationFailure, userExist, userNotExist } from "../Utils/strings";
 import { decryptData, encryptData, generateJWTToken } from "../Utils/utilities";
 import { TokenVerifictionError } from "../Utils/customError";
 import { TokenValidity } from "../Utils/constants";
+import { TokenVerifictionErrorCodes } from "../Utils/enums";
 
 export const createUser = async (userData: IUser) => {
 	const query = User.findOne({ email: userData.email });
@@ -37,23 +38,24 @@ export const verifyEmail = async (token: string) => {
 	try {
 		const decryptedData = JSON.parse(decryptData(token));
 		const query = User.findOne({ email: decryptedData.email });
-		const user = await query;
+		let user = await query;
 		if (!user) throw "Invalid";
 		if (user && user.verifyToken) {
 			if (decryptedData.verifyToken > currentTime) {
-				await user.updateOne({ $set: { token: generateJWTToken({ userId: user._id, userEmail: user.email }, "2h") }, $unset: { verifyToken: "" } });
-				return user.token;
+				user = await User.findOneAndUpdate({ email: user.email }, { $set: { token: generateJWTToken({ userId: user._id, userEmail: user.email }, "2h") }, $unset: { verifyToken: "" } }, { returnDocument: "after" });
+				return user!.token;
 			} else {
-				throw new TokenVerifictionError("Token Expired");
+				console.log("Decrypted Data: ", decryptedData, " User Verify Token: ", user.verifyToken, " Current Time: ", currentTime);
+				throw new TokenVerifictionError("Token Expired", TokenVerifictionErrorCodes.Expired);
 			}
 		} else {
-			throw new TokenVerifictionError("Email already verified. Please signin to access your account.");
+			throw new TokenVerifictionError("Email already verified. Please signin to access your account.", TokenVerifictionErrorCodes.AlreadyVerified);
 		}
 	} catch (err) {
-		if (err instanceof TokenVerifictionError) {
-			throw err.message;
+		if (!(err instanceof TokenVerifictionError)) {
+			throw new TokenVerifictionError("Invalid Token", TokenVerifictionErrorCodes.Invalid);
 		}
-		throw "Invalid Token";
+		throw err;
 	}
 };
 
@@ -62,22 +64,24 @@ export const resendVerificationToken = async (token: string) => {
 	try {
 		const decryptedData = JSON.parse(decryptData(token));
 		const query = User.findOne({ email: decryptedData.email });
-		const user = await query;
+		let user = await query;
 		if (!user) throw "Invalid";
 		if (user && user.verifyToken) {
 			if (user.verifyToken > currentTime) {
-				throw new TokenVerifictionError("Another token is already sent to your email.");
+				throw new TokenVerifictionError("Another token is already sent to your email.", TokenVerifictionErrorCodes.AnotherTokenSent);
 			} else {
-				await user.updateOne({ $set: { verifyToken: currentTime + TokenValidity } });
-				return encryptData(JSON.stringify({ email: user.email, verifyToken: user.verifyToken }));
+				user = await User.findOneAndUpdate({ email: user.email }, { $set: { verifyToken: currentTime + TokenValidity } }, { returnDocument: "after" });
+				console.log("User: ", user);
+				console.log(" User Verify Token: ", user!.verifyToken, " Current Verify Token: ", currentTime + TokenValidity);
+				return { email: user!.email, verificationToken: encryptData(JSON.stringify({ email: user!.email, verifyToken: user!.verifyToken })) };
 			}
 		} else {
-			throw new TokenVerifictionError("Email already verified. Please signin to access your account.");
+			throw new TokenVerifictionError("Email already verified. Please signin to access your account.", TokenVerifictionErrorCodes.AlreadyVerified);
 		}
 	} catch (err) {
-		if (err instanceof TokenVerifictionError) {
-			throw err.message;
+		if (!(err instanceof TokenVerifictionError)) {
+			throw new TokenVerifictionError("Invalid Token", TokenVerifictionErrorCodes.Invalid);
 		}
-		throw "Invalid Token";
+		throw err;
 	}
 };
